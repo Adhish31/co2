@@ -14,7 +14,10 @@ MODEL_PATH = os.path.join(BASE_DIR, 'best_carbon_model.pkl')
 def load_model():
     if not os.path.exists(MODEL_PATH):
         return None
-    return joblib.load(MODEL_PATH)
+    try:
+        return joblib.load(MODEL_PATH)
+    except:
+        return None
 
 model = load_model()
 
@@ -95,6 +98,7 @@ st.markdown("""
         border: none;
         padding: 12px 24px;
         transition: transform 0.2s;
+        width: 100%;
     }
     
     .stButton>button:hover {
@@ -108,78 +112,95 @@ st.markdown("""
 st.markdown("""
     <div style="text-align: center; padding: 20px 0 40px 0;">
         <h1 style="color: #1b5e20; font-size: 3em;">🌍 AgriCarbon AI Predictor</h1>
-        <p style="color: #4caf50; font-size: 1.2em;">Advanced Machine Learning for Sustainable Agriculture</p>
+        <p style="color: #4caf50; font-size: 1.2em;">Advanced Climate & Agricultural Emission Analysis</p>
     </div>
     """, unsafe_allow_html=True)
 
 if model is None:
-    st.error("⚠️ Model file not found! Please run `python ml_pipeline.py` to train the model first.")
+    st.error("⚠️ Model file not found! Please wait while the model is being trained or run `python ml_pipeline.py` manually.")
+    st.info("I am currently re-training the model with the new dataset schema...")
     st.stop()
 
 # Tabs for different prediction modes
 tab1, tab2 = st.tabs(["📝 Manual Input", "📊 Bulk Dataset Prediction"])
 
 with tab1:
-    col1, col2 = st.columns([1, 1], gap="large")
+    col1, col2, col3 = st.columns([1, 1, 1], gap="medium")
     
     with col1:
-        st.markdown("### 🚜 Farming Activities")
-        farm_size = st.number_input("Farm Size (acres)", min_value=1.0, value=50.0, step=1.0)
-        crop_type = st.selectbox("Crop Type", ["Rice", "Wheat", "Maize", "Soybeans", "Cotton"])
-        soil_type = st.selectbox("Soil Type", ["Clay", "Sandy", "Loamy", "Silty", "Peaty"])
-        irrigation_type = st.selectbox("Irrigation Type", ["Drip", "Sprinkler", "Flood"])
-        livestock_count = st.number_input("Livestock Count", min_value=0, value=10)
+        st.markdown("### 🗺️ Location & Context")
+        year = st.number_input("Year", min_value=2000, max_value=2050, value=2024)
+        country = st.selectbox("Country", ['USA', 'India', 'Brazil', 'China', 'Australia', 'France'])
+        region = st.selectbox("Region", ['North', 'South', 'East', 'West', 'Central'])
+        crop_type = st.selectbox("Crop Type", ['Wheat', 'Rice', 'Corn', 'Soybeans', 'Cotton'])
 
     with col2:
-        st.markdown("### ⚡ Resource & Energy")
-        fertilizer = st.number_input("Fertilizer Usage (kg)", min_value=0.0, value=200.0)
-        pesticide = st.number_input("Pesticide Usage (liters)", min_value=0.0, value=10.0)
-        fuel = st.number_input("Fuel Consumption (liters)", min_value=0.0, value=100.0)
-        electricity = st.number_input("Electricity Consumption (kWh)", min_value=0.0, value=500.0)
-        transport = st.number_input("Transportation Distance (km)", min_value=0.0, value=50.0)
+        st.markdown("### 🌡️ Environment & Soil")
+        avg_temp = st.number_input("Average Temperature (°C)", value=25.0)
+        total_precip = st.number_input("Total Precipitation (mm)", value=1000.0)
+        extreme_weather = st.selectbox("Extreme Weather Events", ['None', 'Drought', 'Flood', 'Heatwave', 'Storm'])
+        soil_health = st.slider("Soil Health Index (0-100)", 0.0, 100.0, 75.0)
 
-    if st.button("Generate Prediction", key="predict_manual"):
+    with col3:
+        st.markdown("### 🚜 Inputs & Economy")
+        irrigation_access = st.slider("Irrigation Access (%)", 0.0, 100.0, 50.0)
+        pesticide_use = st.number_input("Pesticide Use (kg/ha)", value=5.0)
+        fertilizer_use = st.number_input("Fertilizer Use (kg/ha)", value=150.0)
+        crop_yield = st.number_input("Expected Crop Yield (tons/ha)", value=5.0)
+        adaptation = st.selectbox("Adaptation Strategy", ['Crop Rotation', 'Drip Irrigation', 'No-Till Farming', 'Multiple Cropping', 'None'])
+        economic_impact = st.number_input("Economic Impact (Million USD)", value=2.5)
+
+    st.markdown("<br>", unsafe_allow_html=True)
+    if st.button("Generate Climate Impact Prediction", key="predict_manual"):
         input_data = {
-            'Farm_Size_acres': farm_size,
+            'Year': year,
+            'Country': country,
+            'Region': region,
             'Crop_Type': crop_type,
-            'Soil_Type': soil_type,
-            'Fertilizer_Usage_kg': fertilizer,
-            'Pesticide_Usage_liters': pesticide,
-            'Fuel_Consumption_liters': fuel,
-            'Irrigation_Type': irrigation_type,
-            'Electricity_Consumption_kWh': electricity,
-            'Livestock_Count': livestock_count,
-            'Transportation_Distance_km': transport
+            'Average_Temperature': avg_temp,
+            'Total_Precipitation': total_precip,
+            'Crop_Yield': crop_yield,
+            'Extreme_Weather_Events': extreme_weather,
+            'Irrigation_Access': irrigation_access,
+            'Pesticide_Use': pesticide_use,
+            'Fertilizer_Use': fertilizer_use,
+            'Soil_Health_Index': soil_health,
+            'Adaptation_Strategies': adaptation,
+            'Economic_Impact_Million_USD': economic_impact
         }
         
         df_input = pd.DataFrame([input_data])
-        prediction = model.predict(df_input)[0]
         
-        # Classification
-        if prediction < 50000:
-            impact, cls = "Low Impact", "impact-low"
-        elif prediction < 200000:
-            impact, cls = "Medium Impact", "impact-medium"
-        else:
-            impact, cls = "High Impact", "impact-high"
+        try:
+            prediction = model.predict(df_input)[0]
             
-        st.markdown(f"""
-            <div class="prediction-card">
-                <div class="metric-label">Estimated Carbon Footprint</div>
-                <div class="metric-value">{prediction:,.2f} <span style="font-size: 0.4em;">kg CO₂e</span></div>
-                <div class="{cls}" style="font-size: 1.5em;">{impact}</div>
-            </div>
-            """, unsafe_allow_html=True)
-        
-        st.success("Analysis complete! Consider optimizing fertilizer use to lower this score.")
+            # Classification logic based on new scale
+            if prediction < 10000:
+                impact, cls = "Low Impact", "impact-low"
+            elif prediction < 20000:
+                impact, cls = "Medium Impact", "impact-medium"
+            else:
+                impact, cls = "High Impact", "impact-high"
+                
+            st.markdown(f"""
+                <div class="prediction-card">
+                    <div class="metric-label">Estimated CO₂ Emissions</div>
+                    <div class="metric-value">{prediction:,.2f} <span style="font-size: 0.4em;">kg CO₂e</span></div>
+                    <div class="{cls}" style="font-size: 1.5em;">{impact}</div>
+                </div>
+                """, unsafe_allow_html=True)
+            
+            st.success("Analysis complete! The prediction reflects the combined impact of climate factors and agricultural inputs.")
+        except Exception as e:
+            st.error(f"Prediction Error: {e}")
 
 with tab2:
     st.markdown("### ☁️ Bulk Prediction from File")
-    st.write("Upload a CSV file containing your agricultural records. Ensure the column names match our required format.")
+    st.write("Upload your dataset matching the new schema to analyze multiple records at once.")
     
     with st.expander("📌 View Required CSV Format"):
-        st.code("""Farm_Size_acres, Crop_Type, Soil_Type, Fertilizer_Usage_kg, Pesticide_Usage_liters, Fuel_Consumption_liters, Irrigation_Type, Electricity_Consumption_kWh, Livestock_Count, Transportation_Distance_km""")
-        st.write("*Note: Crop_Type options: Rice, Wheat, Maize, Soybeans, Cotton*")
+        st.write("The CSV should contain the following columns:")
+        st.code("Year,Country,Region,Crop_Type,Average_Temperature,Total_Precipitation,Crop_Yield,Extreme_Weather_Events,Irrigation_Access,Pesticide_Use,Fertilizer_Use,Soil_Health_Index,Adaptation_Strategies,Economic_Impact_Million_USD")
 
     uploaded_file = st.file_uploader("Choose a CSV file", type="csv")
     
@@ -187,47 +208,54 @@ with tab2:
         try:
             bulk_df = pd.read_csv(uploaded_file)
             
-            # Basic validation
-            required_cols = ['Farm_Size_acres', 'Crop_Type', 'Soil_Type', 'Fertilizer_Usage_kg', 
-                            'Pesticide_Usage_liters', 'Fuel_Consumption_liters', 'Irrigation_Type', 
-                            'Electricity_Consumption_kWh', 'Livestock_Count', 'Transportation_Distance_km']
+            # Use columns expected by the model
+            required_cols = [
+                'Year', 'Country', 'Region', 'Crop_Type', 'Average_Temperature', 
+                'Total_Precipitation', 'Crop_Yield', 'Extreme_Weather_Events', 
+                'Irrigation_Access', 'Pesticide_Use', 'Fertilizer_Use', 
+                'Soil_Health_Index', 'Adaptation_Strategies', 'Economic_Impact_Million_USD'
+            ]
+            
+            # Case insensitive check and renaming
+            bulk_df.columns = [c.strip() for c in bulk_df.columns]
             
             if all(col in bulk_df.columns for col in required_cols):
-                with st.spinner("Processing Large Dataset..."):
+                with st.spinner("Analyzing dataset..."):
                     predictions = model.predict(bulk_df[required_cols])
-                    bulk_df['Predicted_CO2e'] = predictions
+                    bulk_df['Predicted_CO2_Emissions'] = predictions
                     
                     # Impact classification
-                    bulk_df['Impact_Level'] = pd.cut(bulk_df['Predicted_CO2e'], 
-                                                     bins=[0, 50000, 200000, np.inf], 
+                    bulk_df['Impact_Level'] = pd.cut(bulk_df['Predicted_CO2_Emissions'], 
+                                                     bins=[0, 10000, 20000, np.inf], 
                                                      labels=['Low', 'Medium', 'High'])
                 
                 st.markdown("### ✅ Prediction Results")
                 st.dataframe(bulk_df.head(10), use_container_width=True)
                 
-                # Visualizations for bulk data
+                # Visualizations
                 v_col1, v_col2 = st.columns(2)
                 
                 with v_col1:
-                    st.write("#### Emission Distribution")
-                    fig, ax = plt.subplots()
-                    sns.histplot(bulk_df['Predicted_CO2e'], kde=True, color='#2ecc71', ax=ax)
+                    st.write("#### CO2 Emission Distribution")
+                    fig, ax = plt.subplots(figsize=(8, 5))
+                    sns.histplot(bulk_df['Predicted_CO2_Emissions'], kde=True, color='#2ecc71', ax=ax)
                     st.pyplot(fig)
                 
                 with v_col2:
-                    st.write("#### Impact Level Summary")
+                    st.write("#### Impact Level Distribution")
                     impact_counts = bulk_df['Impact_Level'].value_counts()
-                    fig, ax = plt.subplots()
+                    fig, ax = plt.subplots(figsize=(8, 5))
                     ax.pie(impact_counts, labels=impact_counts.index, autopct='%1.1f%%', 
-                           colors=['#2ecc71', '#f1c40f', '#e74c3c'])
+                           colors=['#2ecc71', '#f1c40f', '#e74c3c'], startangle=140)
                     st.pyplot(fig)
                 
                 # Download link
                 csv = bulk_df.to_csv(index=False).encode('utf-8')
-                st.download_button("📥 Download Full Results CSV", data=csv, 
-                                   file_name="predicted_emissions.csv", mime="text/csv")
+                st.download_button("📥 Download Processed Results", data=csv, 
+                                   file_name="bulk_emissions_results.csv", mime="text/csv")
             else:
-                st.error("❌ Column names in CSV do not match the required format. Please check the expander above.")
+                missing = set(required_cols) - set(bulk_df.columns)
+                st.error(f"❌ Missing columns: {', '.join(missing)}")
         except Exception as e:
             st.error(f"❌ Error processing file: {e}")
 

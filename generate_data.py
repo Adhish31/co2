@@ -1,68 +1,86 @@
 import pandas as pd
 import numpy as np
-import os
+import random
 
-# Set seed for reproducibility
-np.random.seed(42)
-
-# Configuration
-n_samples = 1500
-
-# Feature Generation
-data = {
-    'Farm_Size_acres': np.random.uniform(5, 500, n_samples),
-    'Crop_Type': np.random.choice(['Rice', 'Wheat', 'Maize', 'Soybeans', 'Cotton'], n_samples),
-    'Soil_Type': np.random.choice(['Clay', 'Sandy', 'Loamy', 'Silty', 'Peaty'], n_samples),
-    'Fertilizer_Usage_kg': np.random.uniform(50, 500, n_samples),
-    'Pesticide_Usage_liters': np.random.uniform(1, 20, n_samples),
-    'Fuel_Consumption_liters': np.random.uniform(30, 2000, n_samples),
-    'Irrigation_Type': np.random.choice(['Drip', 'Sprinkler', 'Flood'], n_samples),
-    'Electricity_Consumption_kWh': np.random.uniform(100, 5000, n_samples),
-    'Livestock_Count': np.random.randint(0, 100, n_samples),
-    'Transportation_Distance_km': np.random.uniform(10, 300, n_samples)
-}
-
-df = pd.DataFrame(data)
-
-# Constants for emission calculation
-EMISSION_FACTORS = {
-    'Fertilizer_kg': 5.5, # kg CO2e per kg
-    'Pesticide_liter': 12.0,
-    'Fuel_liter': 2.7,
-    'Electricity_kWh': 0.6,
-    'Livestock_head': 1500, # Yearly avg
-    'Transport_km': 0.3
-}
-
-CROP_MULTIPLIERS = {'Rice': 2.2, 'Wheat': 1.0, 'Maize': 1.3, 'Soybeans': 0.9, 'Cotton': 1.4}
-IRRIGATION_MULTIPLIERS = {'Flood': 1.5, 'Sprinkler': 1.1, 'Drip': 0.8}
-SOIL_MULTIPLIERS = {'Peaty': 1.4, 'Clay': 1.2, 'Loamy': 1.0, 'Silty': 1.1, 'Sandy': 0.9}
-
-def calculate_emissions(row):
-    # Base emissions
-    base = (row['Fertilizer_Usage_kg'] * EMISSION_FACTORS['Fertilizer_kg'] +
-            row['Pesticide_Usage_liters'] * EMISSION_FACTORS['Pesticide_liter'] +
-            row['Fuel_Consumption_liters'] * EMISSION_FACTORS['Fuel_liter'] +
-            row['Electricity_Consumption_kWh'] * EMISSION_FACTORS['Electricity_kWh'] +
-            row['Livestock_Count'] * EMISSION_FACTORS['Livestock_head'] +
-            row['Transportation_Distance_km'] * EMISSION_FACTORS['Transport_km'])
+def generate_agricultural_climate_data(num_samples=2000):
+    np.random.seed(42)
     
-    # Apply multipliers
-    total = base * CROP_MULTIPLIERS[row['Crop_Type']]
-    total *= IRRIGATION_MULTIPLIERS[row['Irrigation_Type']]
-    total *= SOIL_MULTIPLIERS[row['Soil_Type']]
+    countries = ['USA', 'India', 'Brazil', 'China', 'Australia', 'France']
+    regions = ['North', 'South', 'East', 'West', 'Central']
+    crops = ['Wheat', 'Rice', 'Corn', 'Soybeans', 'Cotton']
+    weather_events = ['None', 'Drought', 'Flood', 'Heatwave', 'Storm']
+    strategies = ['Crop Rotation', 'Drip Irrigation', 'No-Till Farming', 'Multiple Cropping', 'None']
     
-    # Scale by farm size (baseline is 100 acres)
-    total *= (row['Farm_Size_acres'] / 100)
+    data = []
     
-    # Add noise
-    noise = np.random.normal(0, total * 0.05)
-    return max(0, total + noise)
+    for _ in range(num_samples):
+        year = random.randint(2000, 2024)
+        country = random.choice(countries)
+        region = random.choice(regions)
+        crop = random.choice(crops)
+        
+        # Environmental factors
+        avg_temp = np.random.normal(25, 5) # degrees Celsius
+        total_precip = np.random.normal(1000, 300) # mm
+        
+        # Operational factors
+        pesticide_use = np.random.gamma(2, 5) # kg/ha
+        fertilizer_use = np.random.gamma(5, 40) # kg/ha
+        soil_health = np.random.uniform(30, 90) # index 0-100
+        irrigation_access = np.random.uniform(0, 100) # percentage
+        
+        extreme_weather = random.choice(weather_events)
+        adaptation = random.choice(strategies)
+        
+        # Calculate Crop Yield based on inputs (simplified logic)
+        # Higher temp/low precip/extreme weather reduces yield
+        # Better soil/fertilizer/irrigation improves yield
+        yield_base = 5.0
+        yield_mod = (soil_health/50) + (fertilizer_use/200) + (irrigation_access/100)
+        if extreme_weather != 'None':
+            yield_mod *= 0.6
+        crop_yield = max(0.5, yield_base * yield_mod + np.random.normal(0, 0.5))
+        
+        # Calculate CO2 Emissions (The Target)
+        # Fertilizer and Pesticide are big contributors
+        # Irrigation/Transportation (implied) contributes
+        # Crop type matters
+        emissions = (fertilizer_use * 15.5) + (pesticide_use * 25.0) + (avg_temp * 100)
+        if crop == 'Rice': emissions *= 1.5 # Rice has higher methane
+        if crop == 'Cotton': emissions *= 1.2
+        
+        emissions += np.random.normal(0, 500)
+        emissions = max(1000, emissions)
+        
+        # Economic Impact
+        economic_impact = (crop_yield * 500) - (emissions * 0.1)
+        if extreme_weather != 'None':
+            economic_impact -= 200 # damage costs
+            
+        economic_impact = max(10, economic_impact / 100) # scale to Millions
+        
+        data.append({
+            'Year': year,
+            'Country': country,
+            'Region': region,
+            'Crop_Type': crop,
+            'Average_Temperature': round(avg_temp, 2),
+            'Total_Precipitation': round(total_precip, 2),
+            'CO2_Emissions': round(emissions, 2),
+            'Crop_Yield': round(crop_yield, 2),
+            'Extreme_Weather_Events': extreme_weather,
+            'Irrigation_Access': round(irrigation_access, 2),
+            'Pesticide_Use': round(pesticide_use, 2),
+            'Fertilizer_Use': round(fertilizer_use, 2),
+            'Soil_Health_Index': round(soil_health, 2),
+            'Adaptation_Strategies': adaptation,
+            'Economic_Impact_Million_USD': round(economic_impact, 2)
+        })
+        
+    df = pd.DataFrame(data)
+    df.to_csv('agricultural_emissions.csv', index=False)
+    print(f"Generated {num_samples} samples and saved to 'agricultural_emissions.csv'")
+    return df
 
-df['Carbon_Emission_Score_kg'] = df.apply(calculate_emissions, axis=1)
-
-# Save
-output_path = 'agricultural_emissions.csv'
-df.to_csv(output_path, index=False)
-print(f"Dataset saved to {output_path}")
-print(df.head())
+if __name__ == "__main__":
+    generate_agricultural_climate_data()
