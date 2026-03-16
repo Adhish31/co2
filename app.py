@@ -2,13 +2,22 @@ import streamlit as st
 import pandas as pd
 import joblib
 import numpy as np
+import os
 
-# Load the saved model
+# Absolute path for the model to avoid FileNotFoundError
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+MODEL_PATH = os.path.join(BASE_DIR, 'best_carbon_model.pkl')
+
 @st.cache_resource
 def load_model():
-    return joblib.load('best_carbon_model.pkl')
+    if not os.path.exists(MODEL_PATH):
+        return None
+    return joblib.load(MODEL_PATH)
 
 model = load_model()
+if model is None:
+    st.error("⚠️ Model file not found! Please run `python ml_pipeline.py` to train the model first.")
+    st.stop()
 
 # Page config
 st.set_page_config(page_title="AgriCarbon Predictor", page_icon="🌱", layout="wide")
